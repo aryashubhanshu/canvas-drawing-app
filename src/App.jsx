@@ -3,18 +3,44 @@ import rough from "roughjs/bundled/rough.esm";
 
 const generator = rough.generator();
 
-const createElement = (x1, y1, x2, y2, elementType) => {
+const createElement = (id, x1, y1, x2, y2, type) => {
   const roughElement =
-    elementType === "rectangle"
+    type === "rectangle"
       ? generator.rectangle(x1, y1, x2 - x1, y2 - y1)
       : generator.line(x1, y1, x2, y2);
-  return { x1, y1, x2, y2, roughElement };
+  return { id, x1, y1, x2, y2, type, roughElement };
+};
+
+const distance = (a, b) =>
+  Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
+
+const isWithinElements = (x, y, element) => {
+  const { type, x1, y1, x2, y2 } = element;
+
+  if (type === "rectangle") {
+    const minX = Math.min(x1, x2);
+    const maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2);
+    const maxY = Math.max(y1, y2);
+    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+  } else {
+    const a = { x: x1, y: y1 };
+    const b = { x: x2, y: y2 };
+    const c = { x, y };
+    const offset = distance(a, b) - (distance(a, c) + distance(b, c));
+    return Math.abs(offset) < 1;
+  }
+};
+
+const getElementAtPosition = (x, y, elements) => {
+  return elements.find((element) => isWithinElements(x, y, element));
 };
 
 const App = () => {
   const [elements, setElements] = useState([]);
-  const [drawing, setDrawing] = useState(false);
-  const [elementType, setElementType] = useState("line");
+  const [action, setAction] = useState("none");
+  const [tool, setTool] = useState("selection");
+  const [selectedElement, setSelectedElement] = useState(null);
 
   useLayoutEffect(() => {
     const canvas = document.getElementById("canvas");
@@ -27,51 +53,100 @@ const App = () => {
   }, [elements]);
 
   const handleMouseDown = (event) => {
-    setDrawing(true);
-
     const { clientX, clientY } = event;
+    if (tool === "selection") {
+      const element = getElementAtPosition(clientX, clientY, elements);
+      if (element) {
+        const offsetX = clientX - element.x1;
+        const offsetY = clientY - element.y1;
+        setSelectedElement({ ...element, offsetX, offsetY });
+        setAction("moving");
+      }
+    } else {
+      const id = elements.length;
+      const element = createElement(id, clientX, clientY, clientX, clientY);
+      setElements((prevState) => [...prevState, element]);
 
-    const element = createElement(clientX, clientY, clientX, clientY);
-    setElements((prevState) => [...prevState, element]);
+      setAction("drawing");
+    }
   };
   const handleMouseMove = (event) => {
-    if (!drawing) return;
-
     const { clientX, clientY } = event;
 
-    const index = elements.length - 1;
-    const { x1, y1 } = elements[index];
+    if (tool === "selection") {
+      event.target.style.cursor = getElementAtPosition(
+        clientX,
+        clientY,
+        elements
+      )
+        ? "move"
+        : "default";
+    }
 
-    const updatedElement = createElement(x1, y1, clientX, clientY, elementType);
+    if (action === "drawing") {
+      const index = elements.length - 1;
+      const { x1, y1 } = elements[index];
 
-    const elementsCopy = [...elements];
-    elementsCopy[index] = updatedElement;
-    setElements(elementsCopy);
+      updateElement(index, x1, y1, clientX, clientY, tool);
+    } else if (action === "moving") {
+      const { id, x1, x2, y1, y2, offsetX, offsetY, type } = selectedElement;
+      const width = x2 - x1;
+      const height = y2 - y1;
+      const newX1 = clientX - offsetX;
+      const newY1 = clientY - offsetY;
+      updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type);
+    }
   };
   const handleMouseUp = () => {
-    setDrawing(false);
+    setAction("none");
+    setSelectedElement(null);
+  };
+
+  const updateElement = (id, x1, y1, x2, y2, type) => {
+    const updatedElement = createElement(id, x1, y1, x2, y2, type);
+
+    const elementsCopy = [...elements];
+    elementsCopy[id] = updatedElement;
+    setElements(elementsCopy);
   };
 
   return (
     <div>
-      <div className="fixed top-2 w-full flex items-center gap-4 justify-center">
-        <div className="flex gap-1 border border-black px-2 rounded-md">
+      <div className="radio-toolbar fixed top-2 border px-2 py-2 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl flex items-center gap-4 justify-center shadow-md">
+        <div className="flex gap-1">
+          <input
+            type="radio"
+            id="selection"
+            checked={tool === "selection"}
+            onChange={() => setTool("selection")}
+          />
+          <label htmlFor="selection" className="text-sm">
+            Selection
+          </label>
+        </div>
+
+        <div className="flex gap-1">
           <input
             type="radio"
             id="line"
-            checked={elementType === "line"}
-            onChange={() => setElementType("line")}
+            checked={tool === "line"}
+            onChange={() => setTool("line")}
           />
-          <label htmlFor="line">Line</label>
+          <label htmlFor="line" className="text-sm">
+            Line
+          </label>
         </div>
-        <div className="flex gap-1 border border-black px-2 rounded-md">
+
+        <div className="flex gap-1">
           <input
             type="radio"
-            id="rectange"
-            checked={elementType === "rectangle"}
-            onChange={() => setElementType("rectangle")}
+            id="rectangle"
+            checked={tool === "rectangle"}
+            onChange={() => setTool("rectangle")}
           />
-          <label htmlFor="rectangle">Retangle</label>
+          <label htmlFor="rectangle" className="text-sm">
+            Rectangle
+          </label>
         </div>
       </div>
       <canvas

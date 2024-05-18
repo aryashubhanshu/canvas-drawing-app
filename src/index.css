@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .radio-toolbar input[type="radio"] {
+    @apply opacity-0 fixed w-0;
+  }
+
+  .radio-toolbar label {
+    @apply inline-block bg-white border-[2px] border-gray-700 px-2 py-1 rounded-md;
+  }
+
+  .radio-toolbar input[type="radio"]:checked + label {
+    @apply bg-[#bfg] border-[#4c4];
+  }
+
+  .radio-toolbar input[type="radio"]:focus + label {
+    @apply border-dashed border-[2px] border-[#444];
+  }
+
+  .radio-toolbar label:hover {
+    @apply border-[#dfd];
+  }
+}
