@@ -66,6 +66,24 @@ const adjustElementCoordinates = (element) => {
   }
 };
 
+const resizedCoordinates = (clientX, clientY, position, coordinates) => {
+  const { x1, y1, x2, y2 } = coordinates;
+  switch (position) {
+    case "tl":
+    case "start":
+      return { x1: clientX, y1: clientY, x2, y2 };
+    case "tr":
+      return { x1, y1: clientY, x2: clientX, y2 };
+    case "bl":
+      return { x1: clientX, y1, x2, y2: clientY };
+    case "br":
+    case "end":
+      return { x1, y1, x2: clientX, y2: clientY };
+    default:
+      return null;
+  }
+};
+
 const cursorForPosition = (position) => {
   switch (position) {
     case "tl":
@@ -105,13 +123,19 @@ const App = () => {
         const offsetX = clientX - element.x1;
         const offsetY = clientY - element.y1;
         setSelectedElement({ ...element, offsetX, offsetY });
-        setAction("moving");
+
+        if (element.position === "inside") {
+          setAction("moving");
+        } else {
+          setAction("resize");
+        }
       }
     } else {
       const id = elements.length;
       const element = createElement(id, clientX, clientY, clientX, clientY);
       setElements((prevState) => [...prevState, element]);
 
+      setSelectedElement(element);
       setAction("drawing");
     }
   };
@@ -137,13 +161,22 @@ const App = () => {
       const newX1 = clientX - offsetX;
       const newY1 = clientY - offsetY;
       updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type);
+    } else if (action === "resize") {
+      const { id, type, position, ...coordinates } = selectedElement;
+      const { x1, y1, x2, y2 } = resizedCoordinates(
+        clientX,
+        clientY,
+        position,
+        coordinates
+      );
+      updateElement(id, x1, y1, x2, y2, type);
     }
   };
   const handleMouseUp = () => {
-    const index = elements.length - 1;
+    const index = selectedElement.id;
     const { id, type } = elements[index];
 
-    if (action === "drawing") {
+    if (action === "drawing" || action === "resize") {
       const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
       updateElement(id, x1, y1, x2, y2, type);
     }
