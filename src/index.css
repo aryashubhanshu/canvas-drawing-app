@@ -12,7 +12,7 @@
   }
 
   .radio-toolbar input[type="radio"]:checked + label {
-    @apply bg-[#bfg] border-[#4c4];
+    @apply bg-gray-300;
   }
 
   .radio-toolbar input[type="radio"]:focus + label {
@@ -20,6 +20,6 @@
   }
 
   .radio-toolbar label:hover {
-    @apply border-[#dfd];
+    @apply border-gray-200;
   }
 }
