@@ -1,4 +1,8 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { AiOutlineLine } from "react-icons/ai";
+import { FaRedo, FaSquareFull, FaUndo } from "react-icons/fa";
+import { RiCursorFill } from "react-icons/ri";
+
 import rough from "roughjs/bundled/rough.esm";
 
 const generator = rough.generator();
@@ -99,8 +103,37 @@ const cursorForPosition = (position) => {
   }
 };
 
+const useHistory = (initalState) => {
+  const [index, setIndex] = useState(0);
+  const [history, setHistory] = useState([initalState]);
+
+  const setState = (action, overwrite = false) => {
+    const newState =
+      typeof action === "function" ? action(history[index]) : action;
+    if (overwrite) {
+      const historyCopy = [...history];
+      historyCopy[index] = newState;
+      setHistory(historyCopy);
+    } else {
+      const updatedState = [...history].slice(0, index + 1);
+      setHistory([...updatedState, newState]);
+      setIndex((prevIndex) => prevIndex + 1);
+    }
+  };
+
+  const undo = () => {
+    index > 0 && setIndex((prevIndex) => prevIndex - 1);
+  };
+
+  const redo = () => {
+    index < history.length - 1 && setIndex((prevIndex) => prevIndex + 1);
+  };
+
+  return [history[index], setState, undo, redo];
+};
+
 const App = () => {
-  const [elements, setElements] = useState([]);
+  const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("selection");
   const [selectedElement, setSelectedElement] = useState(null);
@@ -115,6 +148,24 @@ const App = () => {
     elements.forEach(({ roughElement }) => roughCanvas.draw(roughElement));
   }, [elements]);
 
+  useEffect(() => {
+    const undoRedoFunction = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "z") {
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", undoRedoFunction);
+
+    return () => {
+      document.removeEventListener("keydown", undoRedoFunction);
+    };
+  }, [undo, redo]);
+
   const handleMouseDown = (event) => {
     const { clientX, clientY } = event;
     if (tool === "selection") {
@@ -123,6 +174,7 @@ const App = () => {
         const offsetX = clientX - element.x1;
         const offsetY = clientY - element.y1;
         setSelectedElement({ ...element, offsetX, offsetY });
+        setElements((prevState) => prevState);
 
         if (element.position === "inside") {
           setAction("moving");
@@ -173,12 +225,14 @@ const App = () => {
     }
   };
   const handleMouseUp = () => {
-    const index = selectedElement.id;
-    const { id, type } = elements[index];
+    if (selectedElement) {
+      const index = selectedElement.id;
+      const { id, type } = elements[index];
 
-    if (action === "drawing" || action === "resize") {
-      const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
-      updateElement(id, x1, y1, x2, y2, type);
+      if (action === "drawing" || action === "resize") {
+        const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
+        updateElement(id, x1, y1, x2, y2, type);
+      }
     }
 
     setAction("none");
@@ -190,7 +244,7 @@ const App = () => {
 
     const elementsCopy = [...elements];
     elementsCopy[id] = updatedElement;
-    setElements(elementsCopy);
+    setElements(elementsCopy, true);
   };
 
   return (
@@ -203,8 +257,11 @@ const App = () => {
             checked={tool === "selection"}
             onChange={() => setTool("selection")}
           />
-          <label htmlFor="selection" className="text-sm">
-            Selection
+          <label
+            htmlFor="selection"
+            className="w-8 h-8 flex items-center justify-center"
+          >
+            <RiCursorFill className="w-3.5 h-5" />
           </label>
         </div>
 
@@ -215,8 +272,11 @@ const App = () => {
             checked={tool === "line"}
             onChange={() => setTool("line")}
           />
-          <label htmlFor="line" className="text-sm">
-            Line
+          <label
+            htmlFor="line"
+            className="w-8 h-8 flex items-center justify-center"
+          >
+            <AiOutlineLine className="h-5 w-3.5 -rotate-45" />
           </label>
         </div>
 
@@ -227,10 +287,21 @@ const App = () => {
             checked={tool === "rectangle"}
             onChange={() => setTool("rectangle")}
           />
-          <label htmlFor="rectangle" className="text-sm">
-            Rectangle
+          <label
+            htmlFor="rectangle"
+            className="w-8 h-8 flex items-center justify-center"
+          >
+            <FaSquareFull className="w-3 h-5" />
           </label>
         </div>
+      </div>
+      <div className="fixed bottom-2 px-2 py-2 flex items-center justify-center gap-4 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl shadow-md">
+        <button onClick={undo}>
+          <FaUndo />
+        </button>
+        <button onClick={redo}>
+          <FaRedo />
+        </button>
       </div>
       <canvas
         id="canvas"
