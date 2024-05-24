@@ -361,6 +361,9 @@ const App = () => {
 
   return (
     <div>
+      <div className="fixed bottom-2 right-2 text-md text-gray-500">
+        Sketch | thisisshubh
+      </div>
       <div className="radio-toolbar fixed top-2 border px-2 py-2 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl flex items-center gap-4 justify-center shadow-md">
         <div className="flex gap-1">
           <input
