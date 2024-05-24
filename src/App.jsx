@@ -223,6 +223,16 @@ const App = () => {
           undo();
         }
       }
+
+      if (event.key === "1") {
+        setTool("selection");
+      } else if (event.key === "2") {
+        setTool("pencil");
+      } else if (event.key === "3") {
+        setTool("line");
+      } else if (event.key === "4") {
+        setTool("rectangle");
+      }
     };
 
     document.addEventListener("keydown", undoRedoFunction);
@@ -374,8 +384,9 @@ const App = () => {
           />
           <label
             htmlFor="selection"
-            className="w-8 h-8 flex items-center justify-center"
+            className="w-8 h-8 relative flex items-center justify-center"
           >
+            <div className="absolute text-[8px] top-0 left-[2px]">1</div>
             <RiCursorFill className="w-3.5 h-5" />
           </label>
         </div>
@@ -389,8 +400,9 @@ const App = () => {
           />
           <label
             htmlFor="pencil"
-            className="w-8 h-8 flex items-center justify-center"
+            className="w-8 h-8 relative flex items-center justify-center"
           >
+            <div className="absolute text-[8px] top-0 left-[2px]">2</div>
             <BiSolidPencil className="h-5 w-3.5" />
           </label>
         </div>
@@ -404,8 +416,9 @@ const App = () => {
           />
           <label
             htmlFor="line"
-            className="w-8 h-8 flex items-center justify-center"
+            className="w-8 h-8 relative flex items-center justify-center"
           >
+            <div className="absolute text-[8px] top-0 left-[2px]">3</div>
             <AiOutlineLine className="h-5 w-3.5 -rotate-45" />
           </label>
         </div>
@@ -419,8 +432,9 @@ const App = () => {
           />
           <label
             htmlFor="rectangle"
-            className="w-8 h-8 flex items-center justify-center"
+            className="w-8 h-8 relative flex items-center justify-center"
           >
+            <div className="absolute text-[8px] top-0 left-[2px]">4</div>
             <FaSquareFull className="w-3 h-5" />
           </label>
         </div>
