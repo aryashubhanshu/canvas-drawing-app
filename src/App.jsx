@@ -50,7 +50,7 @@ const drawElement = (roughCanvas, context, element) => {
       break;
     case "pencil": {
       const stroke = getSvgPathFromStroke(
-        getStroke(element.points, { size: 10, smoothing: 1 })
+        getStroke(element.points, { size: 5, smoothing: 1 })
       );
       context.fill(new Path2D(stroke));
       break;
@@ -67,25 +67,44 @@ const nearPoint = (x, y, x1, y1, name) => {
   return Math.abs(x - x1) < 5 && Math.abs(y - y1) < 5 ? name : null;
 };
 
+const onLine = (x1, y1, x2, y2, x, y, maxOffset = 1) => {
+  const a = { x: x1, y: y1 };
+  const b = { x: x2, y: y2 };
+  const c = { x, y };
+  const offset = distance(a, b) - (distance(a, c) + distance(b, c));
+  return Math.abs(offset) < maxOffset ? "inside" : null;
+};
+
 const positionWithinElements = (x, y, element) => {
   const { type, x1, y1, x2, y2 } = element;
 
-  if (type === "rectangle") {
-    const topLeft = nearPoint(x, y, x1, y1, "tl");
-    const topRight = nearPoint(x, y, x2, y1, "tr");
-    const bottomLeft = nearPoint(x, y, x1, y2, "bl");
-    const bottomRight = nearPoint(x, y, x2, y2, "br");
-    const inside = x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
-    return topLeft || topRight || bottomLeft || bottomRight || inside;
-  } else {
-    const a = { x: x1, y: y1 };
-    const b = { x: x2, y: y2 };
-    const c = { x, y };
-    const offset = distance(a, b) - (distance(a, c) + distance(b, c));
-    const start = nearPoint(x, y, x1, y1, "start");
-    const end = nearPoint(x, y, x2, y2, "end");
-    const inside = Math.abs(offset) < 1 ? "inside" : null;
-    return start || end || inside;
+  switch (type) {
+    case "line": {
+      const start = nearPoint(x, y, x1, y1, "start");
+      const end = nearPoint(x, y, x2, y2, "end");
+      const on = onLine(x1, y1, x2, y2, x, y);
+      return start || end || on;
+    }
+    case "rectangle": {
+      const topLeft = nearPoint(x, y, x1, y1, "tl");
+      const topRight = nearPoint(x, y, x2, y1, "tr");
+      const bottomLeft = nearPoint(x, y, x1, y2, "bl");
+      const bottomRight = nearPoint(x, y, x2, y2, "br");
+      const inside = x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
+      return topLeft || topRight || bottomLeft || bottomRight || inside;
+    }
+    case "pencil": {
+      const betweenAnyPoint = element.points.some((point, ind) => {
+        const nextPoint = element.points[ind + 1];
+        if (!nextPoint) return false;
+        return (
+          onLine(point.x, point.y, nextPoint.x, nextPoint.y, x, y, 5) != null
+        );
+      });
+      return betweenAnyPoint ? "inside" : null;
+    }
+    default:
+      throw new Error("Invalid type");
   }
 };
 
@@ -218,10 +237,16 @@ const App = () => {
     if (tool === "selection") {
       const element = getElementAtPosition(clientX, clientY, elements);
       if (element) {
-        const offsetX = clientX - element.x1;
-        const offsetY = clientY - element.y1;
-        setSelectedElement({ ...element, offsetX, offsetY });
-        setElements((prevState) => prevState);
+        if (element.type === "pencil") {
+          const xOffsets = element.points.map((point) => clientX - point.x);
+          const yOffsets = element.points.map((point) => clientY - point.y);
+          setSelectedElement({ ...element, xOffsets, yOffsets });
+        } else {
+          const offsetX = clientX - element.x1;
+          const offsetY = clientY - element.y1;
+          setSelectedElement({ ...element, offsetX, offsetY });
+          setElements((prevState) => prevState);
+        }
 
         if (element.position === "inside") {
           setAction("moving");
@@ -261,12 +286,29 @@ const App = () => {
 
       updateElement(index, x1, y1, clientX, clientY, tool);
     } else if (action === "moving") {
-      const { id, x1, x2, y1, y2, offsetX, offsetY, type } = selectedElement;
-      const width = x2 - x1;
-      const height = y2 - y1;
-      const newX1 = clientX - offsetX;
-      const newY1 = clientY - offsetY;
-      updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type);
+      if (selectedElement.type === "pencil") {
+        const { id } = selectedElement;
+        const newPoints = selectedElement.points.map((_, ind) => {
+          return {
+            x: clientX - selectedElement.xOffsets[ind],
+            y: clientY - selectedElement.yOffsets[ind],
+          };
+        });
+
+        const elementsCopy = [...elements];
+        elementsCopy[id] = {
+          ...elementsCopy[id],
+          points: newPoints,
+        };
+        setElements(elementsCopy, true);
+      } else {
+        const { id, x1, x2, y1, y2, offsetX, offsetY, type } = selectedElement;
+        const width = x2 - x1;
+        const height = y2 - y1;
+        const newX1 = clientX - offsetX;
+        const newY1 = clientY - offsetY;
+        updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type);
+      }
     } else if (action === "resize") {
       const { id, type, position, ...coordinates } = selectedElement;
       const { x1, y1, x2, y2 } = resizedCoordinates(
