@@ -1,5 +1,7 @@
+import getStroke from "perfect-freehand";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { AiOutlineLine } from "react-icons/ai";
+import { BiSolidPencil } from "react-icons/bi";
 import { FaRedo, FaSquareFull, FaUndo } from "react-icons/fa";
 import { RiCursorFill } from "react-icons/ri";
 
@@ -8,11 +10,54 @@ import rough from "roughjs/bundled/rough.esm";
 const generator = rough.generator();
 
 const createElement = (id, x1, y1, x2, y2, type) => {
-  const roughElement =
-    type === "rectangle"
-      ? generator.rectangle(x1, y1, x2 - x1, y2 - y1)
-      : generator.line(x1, y1, x2, y2);
-  return { id, x1, y1, x2, y2, type, roughElement };
+  switch (type) {
+    case "line": {
+      const roughElement = generator.line(x1, y1, x2, y2);
+      return { id, x1, y1, x2, y2, type, roughElement };
+    }
+    case "rectangle": {
+      const roughElement = generator.rectangle(x1, y1, x2 - x1, y2 - y1);
+      return { id, x1, y1, x2, y2, type, roughElement };
+    }
+    case "pencil":
+      return { id, type, points: [{ x: x1, y: y1 }] };
+    default:
+      throw new Error("Invalid type");
+  }
+};
+
+const getSvgPathFromStroke = (stroke) => {
+  if (!stroke.length) return "";
+
+  const d = stroke.reduce(
+    (acc, [x0, y0], i, arr) => {
+      const [x1, y1] = arr[(i + 1) % arr.length];
+      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+      return acc;
+    },
+    ["M", ...stroke[0], "Q"]
+  );
+
+  d.push("Z");
+  return d.join(" ");
+};
+
+const drawElement = (roughCanvas, context, element) => {
+  switch (element.type) {
+    case "line":
+    case "rectangle":
+      roughCanvas.draw(element.roughElement);
+      break;
+    case "pencil": {
+      const stroke = getSvgPathFromStroke(
+        getStroke(element.points, { size: 10, smoothing: 1 })
+      );
+      context.fill(new Path2D(stroke));
+      break;
+    }
+    default:
+      throw new Error("Invalid type");
+  }
 };
 
 const distance = (a, b) =>
@@ -52,6 +97,8 @@ const getElementAtPosition = (x, y, elements) => {
     }))
     .find((element) => element.position !== null);
 };
+
+const adjustmentRequired = (type) => ["rectangle", "line"].includes(type);
 
 const adjustElementCoordinates = (element) => {
   const { x1, y1, x2, y2, type } = element;
@@ -135,7 +182,7 @@ const useHistory = (initalState) => {
 const App = () => {
   const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
-  const [tool, setTool] = useState("selection");
+  const [tool, setTool] = useState("pencil");
   const [selectedElement, setSelectedElement] = useState(null);
 
   useLayoutEffect(() => {
@@ -145,7 +192,7 @@ const App = () => {
 
     const roughCanvas = rough.canvas(canvas);
 
-    elements.forEach(({ roughElement }) => roughCanvas.draw(roughElement));
+    elements.forEach((element) => drawElement(roughCanvas, context, element));
   }, [elements]);
 
   useEffect(() => {
@@ -184,7 +231,14 @@ const App = () => {
       }
     } else {
       const id = elements.length;
-      const element = createElement(id, clientX, clientY, clientX, clientY);
+      const element = createElement(
+        id,
+        clientX,
+        clientY,
+        clientX,
+        clientY,
+        tool
+      );
       setElements((prevState) => [...prevState, element]);
 
       setSelectedElement(element);
@@ -229,7 +283,10 @@ const App = () => {
       const index = selectedElement.id;
       const { id, type } = elements[index];
 
-      if (action === "drawing" || action === "resize") {
+      if (
+        (action === "drawing" || action === "resize") &&
+        adjustmentRequired(type)
+      ) {
         const { x1, y1, x2, y2 } = adjustElementCoordinates(elements[index]);
         updateElement(id, x1, y1, x2, y2, type);
       }
@@ -240,10 +297,23 @@ const App = () => {
   };
 
   const updateElement = (id, x1, y1, x2, y2, type) => {
-    const updatedElement = createElement(id, x1, y1, x2, y2, type);
-
     const elementsCopy = [...elements];
-    elementsCopy[id] = updatedElement;
+
+    switch (type) {
+      case "line":
+      case "rectangle":
+        elementsCopy[id] = createElement(id, x1, y1, x2, y2, type);
+        break;
+      case "pencil":
+        elementsCopy[id].points = [
+          ...elementsCopy[id].points,
+          { x: x2, y: y2 },
+        ];
+        break;
+      default:
+        throw new Error("Invalid type");
+    }
+
     setElements(elementsCopy, true);
   };
 
@@ -262,6 +332,21 @@ const App = () => {
             className="w-8 h-8 flex items-center justify-center"
           >
             <RiCursorFill className="w-3.5 h-5" />
+          </label>
+        </div>
+
+        <div className="flex gap-1">
+          <input
+            type="radio"
+            id="pencil"
+            checked={tool === "pencil"}
+            onChange={() => setTool("pencil")}
+          />
+          <label
+            htmlFor="pencil"
+            className="w-8 h-8 flex items-center justify-center"
+          >
+            <BiSolidPencil className="h-5 w-3.5" />
           </label>
         </div>
 
