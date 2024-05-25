@@ -1,8 +1,9 @@
 import getStroke from "perfect-freehand";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AiOutlineLine } from "react-icons/ai";
 import { BiSolidPencil } from "react-icons/bi";
 import { FaRedo, FaSquareFull, FaUndo } from "react-icons/fa";
+import { IoText } from "react-icons/io5";
 import { RiCursorFill } from "react-icons/ri";
 
 import rough from "roughjs/bundled/rough.esm";
@@ -21,6 +22,8 @@ const createElement = (id, x1, y1, x2, y2, type) => {
     }
     case "pencil":
       return { id, type, points: [{ x: x1, y: y1 }] };
+    case "text":
+      return { id, type, x1, y1, x2, y2, text: "" };
     default:
       throw new Error("Invalid type");
   }
@@ -55,6 +58,11 @@ const drawElement = (roughCanvas, context, element) => {
       context.fill(new Path2D(stroke));
       break;
     }
+    case "text":
+      context.font = '36px "Square Peg"';
+      context.textBaseline = "top";
+      context.fillText(element.text, element.x1, element.y1);
+      break;
     default:
       throw new Error("Invalid type");
   }
@@ -103,6 +111,8 @@ const positionWithinElements = (x, y, element) => {
       });
       return betweenAnyPoint ? "inside" : null;
     }
+    case "text":
+      return x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
     default:
       throw new Error("Invalid type");
   }
@@ -203,6 +213,7 @@ const App = () => {
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("pencil");
   const [selectedElement, setSelectedElement] = useState(null);
+  const textAreaRef = useRef();
 
   useLayoutEffect(() => {
     const canvas = document.getElementById("canvas");
@@ -211,11 +222,14 @@ const App = () => {
 
     const roughCanvas = rough.canvas(canvas);
 
-    elements.forEach((element) => drawElement(roughCanvas, context, element));
-  }, [elements]);
+    elements.forEach((element) => {
+      if (action === "writing" && selectedElement.id === element.id) return;
+      drawElement(roughCanvas, context, element);
+    });
+  }, [elements, selectedElement, action]);
 
   useEffect(() => {
-    const undoRedoFunction = (event) => {
+    const keyStrokeHandler = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "z") {
         if (event.shiftKey) {
           redo();
@@ -232,17 +246,33 @@ const App = () => {
         setTool("line");
       } else if (event.key === "4") {
         setTool("rectangle");
+      } else if (event.key === "5") {
+        setTool("text");
       }
     };
 
-    document.addEventListener("keydown", undoRedoFunction);
+    document.addEventListener("keydown", keyStrokeHandler);
 
     return () => {
-      document.removeEventListener("keydown", undoRedoFunction);
+      document.removeEventListener("keydown", keyStrokeHandler);
     };
   }, [undo, redo]);
 
+  useEffect(() => {
+    if (action === "writing") {
+      const timer = setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          textAreaRef.current.value = selectedElement.text;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [action, selectedElement]);
+
   const handleMouseDown = (event) => {
+    if (action === "writing") return;
+
     const { clientX, clientY } = event;
     if (tool === "selection") {
       const element = getElementAtPosition(clientX, clientY, elements);
@@ -277,7 +307,7 @@ const App = () => {
       setElements((prevState) => [...prevState, element]);
 
       setSelectedElement(element);
-      setAction("drawing");
+      setAction(tool === "text" ? "writing" : "drawing");
     }
   };
   const handleMouseMove = (event) => {
@@ -317,7 +347,16 @@ const App = () => {
         const height = y2 - y1;
         const newX1 = clientX - offsetX;
         const newY1 = clientY - offsetY;
-        updateElement(id, newX1, newY1, newX1 + width, newY1 + height, type);
+        const options = type === "text" ? { text: selectedElement.text } : {};
+        updateElement(
+          id,
+          newX1,
+          newY1,
+          newX1 + width,
+          newY1 + height,
+          type,
+          options
+        );
       }
     } else if (action === "resize") {
       const { id, type, position, ...coordinates } = selectedElement;
@@ -330,8 +369,19 @@ const App = () => {
       updateElement(id, x1, y1, x2, y2, type);
     }
   };
-  const handleMouseUp = () => {
+  const handleMouseUp = (event) => {
+    const { clientX, clientY } = event;
+
     if (selectedElement) {
+      if (
+        selectedElement.type === "text" &&
+        clientX - selectedElement.offsetX === selectedElement.x1 &&
+        clientY - selectedElement.offsetY === selectedElement.y1
+      ) {
+        setAction("writing");
+        return;
+      }
+
       const index = selectedElement.id;
       const { id, type } = elements[index];
 
@@ -344,11 +394,13 @@ const App = () => {
       }
     }
 
+    if (action === "writing") return;
+
     setAction("none");
     setSelectedElement(null);
   };
 
-  const updateElement = (id, x1, y1, x2, y2, type) => {
+  const updateElement = (id, x1, y1, x2, y2, type, options) => {
     const elementsCopy = [...elements];
 
     switch (type) {
@@ -362,11 +414,34 @@ const App = () => {
           { x: x2, y: y2 },
         ];
         break;
+      case "text": {
+        const textWidth = document
+          .getElementById("canvas")
+          .getContext("2d")
+          .measureText(options.text).width;
+        const textHeight = 36;
+        elementsCopy[id] = {
+          ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type),
+          text: options.text,
+        };
+        break;
+      }
       default:
         throw new Error("Invalid type");
     }
 
     setElements(elementsCopy, true);
+  };
+
+  const handleBlur = () => {
+    const { id, x1, y1, type } = selectedElement;
+
+    setAction("none");
+    setSelectedElement(null);
+
+    updateElement(id, x1, y1, null, null, type, {
+      text: event.target.value,
+    });
   };
 
   return (
@@ -438,6 +513,22 @@ const App = () => {
             <FaSquareFull className="w-3 h-5" />
           </label>
         </div>
+
+        <div className="flex gap-1">
+          <input
+            type="radio"
+            id="text"
+            checked={tool === "text"}
+            onChange={() => setTool("text")}
+          />
+          <label
+            htmlFor="text"
+            className="w-8 h-8 relative flex items-center justify-center"
+          >
+            <div className="absolute text-[8px] top-0 left-[2px]">5</div>
+            <IoText className="h-5 w-3.5" />
+          </label>
+        </div>
       </div>
       <div className="fixed bottom-2 px-2 py-2 flex items-center justify-center gap-4 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl shadow-md">
         <button onClick={undo}>
@@ -447,6 +538,26 @@ const App = () => {
           <FaRedo />
         </button>
       </div>
+      {action === "writing" ? (
+        <textarea
+          ref={textAreaRef}
+          onBlur={handleBlur}
+          style={{
+            position: "fixed",
+            top: selectedElement.y1 - 10.5,
+            left: selectedElement.x1,
+            margin: 0,
+            padding: 0,
+            border: 0,
+            outline: 0,
+            resize: "auto",
+            overflow: "hidden",
+            background: "transparent",
+            fontSize: "36px",
+          }}
+          className="font-writing font-bold"
+        />
+      ) : null}
       <canvas
         id="canvas"
         width={window.innerWidth}
