@@ -8,7 +8,7 @@
   }
 
   .radio-toolbar label {
-    @apply inline-block bg-white border-[2px] border-gray-700 px-2 py-1 rounded-md;
+    @apply inline-block bg-white border-[2px] border-gray-700 px-2 py-1 rounded-md transition-all;
   }
 
   .radio-toolbar input[type="radio"]:checked + label {

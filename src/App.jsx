@@ -2,8 +2,9 @@ import getStroke from "perfect-freehand";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AiOutlineLine } from "react-icons/ai";
 import { BiSolidPencil } from "react-icons/bi";
-import { FaRedo, FaSquareFull, FaUndo } from "react-icons/fa";
+import { FaSquareFull } from "react-icons/fa";
 import { IoText } from "react-icons/io5";
+import { LuRedo2, LuUndo2 } from "react-icons/lu";
 import { RiCursorFill } from "react-icons/ri";
 
 import rough from "roughjs/bundled/rough.esm";
@@ -59,7 +60,7 @@ const drawElement = (roughCanvas, context, element) => {
       break;
     }
     case "text":
-      context.font = '36px "Square Peg"';
+      context.font = '40px "Square Peg"';
       context.textBaseline = "top";
       context.fillText(element.text, element.x1, element.y1);
       break;
@@ -419,7 +420,7 @@ const App = () => {
           .getElementById("canvas")
           .getContext("2d")
           .measureText(options.text).width;
-        const textHeight = 36;
+        const textHeight = 40;
         elementsCopy[id] = {
           ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type),
           text: options.text,
@@ -530,12 +531,18 @@ const App = () => {
           </label>
         </div>
       </div>
-      <div className="fixed bottom-2 px-2 py-2 flex items-center justify-center gap-4 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl shadow-md">
-        <button onClick={undo}>
-          <FaUndo />
+      <div className="fixed bottom-2 flex items-center justify-center left-1/2 -translate-x-1/2 border-gray-300 rounded-xl shadow-md">
+        <button
+          className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+          onClick={undo}
+        >
+          <LuUndo2 size={20} />
         </button>
-        <button onClick={redo}>
-          <FaRedo />
+        <button
+          className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+          onClick={redo}
+        >
+          <LuRedo2 size={20} />
         </button>
       </div>
       {action === "writing" ? (
@@ -553,7 +560,7 @@ const App = () => {
             resize: "auto",
             overflow: "hidden",
             background: "transparent",
-            fontSize: "36px",
+            fontSize: "40px",
           }}
           className="font-writing font-bold"
         />
