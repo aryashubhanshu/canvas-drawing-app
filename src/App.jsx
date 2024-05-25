@@ -2,6 +2,7 @@ import getStroke from "perfect-freehand";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AiOutlineLine } from "react-icons/ai";
 import { BiSolidPencil } from "react-icons/bi";
+import { BsQuestionCircle } from "react-icons/bs";
 import { FaSquareFull } from "react-icons/fa";
 import { IoText } from "react-icons/io5";
 import { LuRedo2, LuUndo2 } from "react-icons/lu";
@@ -526,10 +527,10 @@ const App = () => {
 
   return (
     <div>
-      <div className="fixed bottom-2 right-2 text-md text-gray-500">
-        Sketch | thisisshubh
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-gray-500">
+        Sketch | thisisshubh.online
       </div>
-      <div className="radio-toolbar fixed top-2 border px-2 py-2 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl flex items-center gap-4 justify-center shadow-md z-20">
+      <div className="radio-toolbar fixed top-4 border px-2 py-2 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl flex items-center gap-4 justify-center shadow-md z-20">
         <div className="flex gap-1">
           <input
             type="radio"
@@ -610,7 +611,7 @@ const App = () => {
           </label>
         </div>
       </div>
-      <div className="fixed bottom-2 flex items-center justify-center left-1/2 -translate-x-1/2 border-gray-300 rounded-xl shadow-md z-20">
+      <div className="fixed bottom-4 flex items-center justify-between left-4 border-gray-300 rounded-xl shadow-md z-20">
         <button
           className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
           onClick={undo}
@@ -622,6 +623,14 @@ const App = () => {
           onClick={redo}
         >
           <LuRedo2 size={20} />
+        </button>
+      </div>
+      <div className="fixed bottom-4 flex items-center justify-between right-4 border-gray-300 rounded-xl shadow-md z-20">
+        <button
+          onClick={() => {}}
+          className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+        >
+          <BsQuestionCircle size={20} />
         </button>
       </div>
       {action === "writing" ? (
