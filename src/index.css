@@ -22,4 +22,8 @@
   .radio-toolbar label:hover {
     @apply border-gray-200;
   }
+
+  .shortcut {
+    @apply text-xs bg-gray-300 px-2 py-1 rounded-md;
+  }
 }

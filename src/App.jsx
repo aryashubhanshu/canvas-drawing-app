@@ -10,6 +10,7 @@ import { RiCursorFill } from "react-icons/ri";
 import { RxDividerVertical } from "react-icons/rx";
 
 import rough from "roughjs/bundled/rough.esm";
+import Help from "./components/Help";
 
 const generator = rough.generator();
 
@@ -256,6 +257,8 @@ const App = () => {
   const [scale, setScale] = useState(1);
   const [scaleOffset, setScaleOffset] = useState({ x: 0, y: 0 });
   const pressedKeys = usePressedKeys();
+
+  const [showModal, setShowModal] = useState(false);
 
   useLayoutEffect(() => {
     const canvas = document.getElementById("canvas");
@@ -556,7 +559,7 @@ const App = () => {
 
   return (
     <div>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-gray-500">
+      <div className="fixed bottom-4 max-md:hidden left-1/2 -translate-x-1/2 text-sm text-gray-500">
         Sketch | thisisshubh.online
       </div>
       <div className="radio-toolbar fixed top-4 border px-2 py-2 left-1/2 -translate-x-1/2 border-gray-300 rounded-xl flex items-center gap-4 justify-center shadow-md z-20">
@@ -676,7 +679,7 @@ const App = () => {
       </div>
       <div className="fixed bottom-4 flex items-center justify-between right-4 border-gray-300 rounded-xl shadow-md z-20">
         <button
-          onClick={() => {}}
+          onClick={() => setShowModal(true)}
           className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
         >
           <BsQuestionCircle size={20} />
@@ -706,6 +709,7 @@ const App = () => {
           className="font-writing font-bold"
         />
       ) : null}
+      {showModal && <Help setShowModal={setShowModal} />}
       <canvas
         id="canvas"
         width={window.innerWidth}
