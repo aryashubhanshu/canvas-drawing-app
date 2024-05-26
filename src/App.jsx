@@ -3,10 +3,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AiOutlineLine } from "react-icons/ai";
 import { BiSolidPencil } from "react-icons/bi";
 import { BsQuestionCircle } from "react-icons/bs";
-import { FaSquareFull } from "react-icons/fa";
+import { FaMinus, FaPlus, FaSquareFull } from "react-icons/fa";
 import { IoText } from "react-icons/io5";
 import { LuRedo2, LuUndo2 } from "react-icons/lu";
 import { RiCursorFill } from "react-icons/ri";
+import { RxDividerVertical } from "react-icons/rx";
 
 import rough from "roughjs/bundled/rough.esm";
 
@@ -252,6 +253,8 @@ const App = () => {
     x: 0,
     y: 0,
   });
+  const [scale, setScale] = useState(1);
+  const [scaleOffset, setScaleOffset] = useState({ x: 0, y: 0 });
   const pressedKeys = usePressedKeys();
 
   useLayoutEffect(() => {
@@ -261,8 +264,21 @@ const App = () => {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
 
+    const scaledWidth = canvas.width * scale;
+    const scaledHeight = canvas.height * scale;
+
+    const scaleOffsetX = (scaledWidth - canvas.width) / 2;
+    const scaleOffsetY = (scaledHeight - canvas.height) / 2;
+
+    setScaleOffset({ x: scaleOffsetX, y: scaleOffsetY });
+
     context.save();
-    context.translate(panOffset.x, panOffset.y);
+    context.translate(
+      panOffset.x * scale - scaleOffsetX,
+      panOffset.y * scale - scaleOffsetY
+    );
+
+    context.scale(scale, scale);
 
     elements.forEach((element) => {
       if (action === "writing" && selectedElement.id === element.id) return;
@@ -270,7 +286,7 @@ const App = () => {
     });
 
     context.restore();
-  }, [elements, selectedElement, action, panOffset]);
+  }, [elements, selectedElement, action, panOffset, scale]);
 
   useEffect(() => {
     const keyStrokeHandler = (event) => {
@@ -315,21 +331,27 @@ const App = () => {
   }, [action, selectedElement]);
 
   useEffect(() => {
-    const panFunction = (event) => {
-      setPanOffset((prevOffset) => ({
-        x: prevOffset.x - event.deltaX,
-        y: prevOffset.y - event.deltaY,
-      }));
+    const panOrZoomFunction = (event) => {
+      if (pressedKeys.has("Meta") || pressedKeys.has("Control"))
+        onZoom(event.deltaY * -0.01);
+      else {
+        setPanOffset((prevOffset) => ({
+          x: prevOffset.x - event.deltaX,
+          y: prevOffset.y - event.deltaY,
+        }));
+      }
     };
 
-    document.addEventListener("wheel", panFunction);
+    document.addEventListener("wheel", panOrZoomFunction);
 
-    return () => document.removeEventListener("wheel", panFunction);
-  }, []);
+    return () => document.removeEventListener("wheel", panOrZoomFunction);
+  }, [pressedKeys]);
 
   const getMouseCoordinates = (event) => {
-    const clientX = event.clientX - panOffset.x;
-    const clientY = event.clientY - panOffset.y;
+    const clientX =
+      (event.clientX - panOffset.x * scale + scaleOffset.x) / scale;
+    const clientY =
+      (event.clientY - panOffset.y * scale + scaleOffset.y) / scale;
 
     return { clientX, clientY };
   };
@@ -384,9 +406,12 @@ const App = () => {
   const handleMouseMove = (event) => {
     const { clientX, clientY } = getMouseCoordinates(event);
 
+    event.target.style.cursor = "default";
+
     if (action === "panning") {
       const deltaX = clientX - startPanMousePosition.x;
       const deltaY = clientY - startPanMousePosition.y;
+      event.target.style.cursor = "grabbing";
       setPanOffset((prevOffset) => ({
         x: prevOffset.x + deltaX,
         y: prevOffset.y + deltaY,
@@ -525,6 +550,10 @@ const App = () => {
     });
   };
 
+  const onZoom = (delta) => {
+    setScale((prevData) => Math.min(Math.max(prevData + delta, 0.1), 20));
+  };
+
   return (
     <div>
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-sm text-gray-500">
@@ -611,19 +640,39 @@ const App = () => {
           </label>
         </div>
       </div>
-      <div className="fixed bottom-4 flex items-center justify-between left-4 border-gray-300 rounded-xl shadow-md z-20">
-        <button
-          className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
-          onClick={undo}
-        >
-          <LuUndo2 size={20} />
-        </button>
-        <button
-          className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
-          onClick={redo}
-        >
-          <LuRedo2 size={20} />
-        </button>
+      <div className="fixed bottom-4 flex gap-2 items-center justify-between left-4 border-gray-300 rounded-xl shadow-md z-20">
+        <div className="flex items-center gap-4">
+          <button
+            className="w-fit rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+            onClick={() => onZoom(-0.1)}
+          >
+            <FaMinus size={12} />
+          </button>
+          <div onClick={() => setScale(1)} className="text-md w-10">
+            {new Intl.NumberFormat("en-GB", { style: "percent" }).format(scale)}
+          </div>
+          <button
+            className="w-fit rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+            onClick={() => onZoom(0.1)}
+          >
+            <FaPlus size={12} />
+          </button>
+        </div>
+        <RxDividerVertical size={20} />
+        <div className="flex gap-1">
+          <button
+            className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+            onClick={undo}
+          >
+            <LuUndo2 size={20} />
+          </button>
+          <button
+            className="w-full rounded-xl transition-all hover:bg-gray-300 px-2 py-2"
+            onClick={redo}
+          >
+            <LuRedo2 size={20} />
+          </button>
+        </div>
       </div>
       <div className="fixed bottom-4 flex items-center justify-between right-4 border-gray-300 rounded-xl shadow-md z-20">
         <button
@@ -639,8 +688,12 @@ const App = () => {
           onBlur={handleBlur}
           style={{
             position: "fixed",
-            top: selectedElement.y1 - 12.5 + panOffset.y,
-            left: selectedElement.x1 + panOffset.x,
+            top:
+              (selectedElement.y1 - 12.5) * scale +
+              panOffset.y * scale -
+              scaleOffset.y,
+            left:
+              selectedElement.x1 * scale + panOffset.x * scale - scaleOffset.x,
             margin: 0,
             padding: 0,
             border: 0,
@@ -648,7 +701,7 @@ const App = () => {
             resize: "auto",
             overflow: "hidden",
             background: "transparent",
-            fontSize: "40px",
+            fontSize: `${40 * scale}px`,
           }}
           className="font-writing font-bold"
         />
